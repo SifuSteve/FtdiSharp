@@ -1,4 +1,10 @@
-﻿using FtdiSharp.FTD2XX;
+﻿//#define FT232H                // Enable only one of these defines depending on your device type
+// #define FT2232H
+#define FT4232H
+
+
+
+using FtdiSharp.FTD2XX;
 using System.Diagnostics;
 using System.Linq;
 
@@ -46,6 +52,8 @@ public class I2C : ProtocolBase
         const uint ClockDivisor = 199; //49 for 200 KHz, 199 for 100 KHz
         const byte I2C_Data_SDAhi_SCLhi = 0x03;
         const byte I2C_Dir_SDAout_SCLout = 0x03;
+        const byte I2C_Data_SDAlo_SCLlo = 0x00;
+        const byte I2C_Dir_SDAin_SCLin = 0x00;
 
         int numBytesToSend = 0;
         byte[] buffer = new byte[100];
@@ -59,6 +67,7 @@ public class I2C : ProtocolBase
         buffer[numBytesToSend++] = (byte)((ClockDivisor >> 8) & 0x00FF);   //Set 0xValueH of clock divisor
         buffer[numBytesToSend++] = 0x85;           // loopback off
 
+#if (FT232H)
         buffer[numBytesToSend++] = 0x9E;       //Enable the FT232H's drive-zero mode with the following enable mask...
         buffer[numBytesToSend++] = 0x07;       // ... Low byte (ADx) enables - bits 0, 1 and 2 and ... 
         buffer[numBytesToSend++] = 0x00;       //...High byte (ACx) enables - all off
@@ -66,6 +75,14 @@ public class I2C : ProtocolBase
         buffer[numBytesToSend++] = 0x80;   //Command to set directions of lower 8 pins and force value on bits set as output 
         buffer[numBytesToSend++] = I2C_Data_SDAhi_SCLhi;
         buffer[numBytesToSend++] = I2C_Dir_SDAout_SCLout;
+#else
+        buffer[numBytesToSend++] = 0x80;   //Command to set directions of lower 8 pins and force value on bits set as output 
+        buffer[numBytesToSend++] = I2C_Data_SDAlo_SCLlo;
+        buffer[numBytesToSend++] = I2C_Dir_SDAin_SCLin;
+#endif
+
+
+
 
         byte[] msg = buffer.Take(numBytesToSend).ToArray();
         FtdiDevice.Write(msg).ThrowIfNotOK();
@@ -79,9 +96,14 @@ public class I2C : ProtocolBase
         const byte I2C_Data_SDAlo_SCLhi = 0x01;
         const byte I2C_Data_SDAhi_SCLlo = 0x02;
         const byte I2C_Data_SDAhi_SCLhi = 0x03;
+        const byte I2C_Dir_SDAin_SCLout = 0x01;
+        const byte I2C_Dir_SDAout_SCLin = 0x02;
+        const byte I2C_Dir_SDAin_SCLin = 0x00;
 
         const byte I2C_ADbus = 0x80;
         const byte I2C_Dir_SDAout_SCLout = 0x03;
+
+#if (FT232H)
 
         for (int i = 0; i < 6; i++)
             bytes.AddRange(new byte[] { I2C_ADbus, I2C_Data_SDAhi_SCLhi, I2C_Dir_SDAout_SCLout, });
@@ -93,6 +115,21 @@ public class I2C : ProtocolBase
             bytes.AddRange(new byte[] { I2C_ADbus, I2C_Data_SDAlo_SCLlo, I2C_Dir_SDAout_SCLout, });
 
         bytes.AddRange(new byte[] { I2C_ADbus, I2C_Data_SDAhi_SCLlo, I2C_Dir_SDAout_SCLout, });
+
+#else
+        for (int i = 0; i < 6; i++)
+            bytes.AddRange(new byte[] { I2C_ADbus, I2C_Data_SDAlo_SCLlo, I2C_Dir_SDAin_SCLin, });
+
+        for (int i = 0; i < 6; i++)
+            bytes.AddRange(new byte[] { I2C_ADbus, I2C_Data_SDAlo_SCLlo, I2C_Dir_SDAout_SCLin, });
+
+        for (int i = 0; i < 6; i++)
+            bytes.AddRange(new byte[] { I2C_ADbus, I2C_Data_SDAlo_SCLlo, I2C_Dir_SDAout_SCLout, });
+
+        bytes.AddRange(new byte[] { I2C_ADbus, I2C_Data_SDAlo_SCLlo, I2C_Dir_SDAin_SCLout, });
+
+
+#endif
 
         FtdiDevice.Write(bytes.ToArray()).ThrowIfNotOK();
     }
@@ -107,6 +144,10 @@ public class I2C : ProtocolBase
 
         const byte I2C_ADbus = 0x80;
         const byte I2C_Dir_SDAout_SCLout = 0x03;
+        const byte I2C_Dir_SDAout_SCLin = 0x02;
+        const byte I2C_Dir_SDAin_SCLin = 0x00;
+
+#if (FT232H)
 
         for (int i = 0; i < 6; i++)
             bytes.AddRange(new byte[] { I2C_ADbus, I2C_Data_SDAlo_SCLlo, I2C_Dir_SDAout_SCLout, });
@@ -116,6 +157,20 @@ public class I2C : ProtocolBase
 
         for (int i = 0; i < 6; i++)
             bytes.AddRange(new byte[] { I2C_ADbus, I2C_Data_SDAhi_SCLhi, I2C_Dir_SDAout_SCLout, });
+
+#else
+
+        for (int i = 0; i < 6; i++)
+            bytes.AddRange(new byte[] { I2C_ADbus, I2C_Data_SDAlo_SCLlo, I2C_Dir_SDAout_SCLout, });
+
+        for (int i = 0; i < 6; i++)
+            bytes.AddRange(new byte[] { I2C_ADbus, I2C_Data_SDAlo_SCLlo, I2C_Dir_SDAout_SCLin, });
+
+        for (int i = 0; i < 6; i++)
+            bytes.AddRange(new byte[] { I2C_ADbus, I2C_Data_SDAlo_SCLlo, I2C_Dir_SDAin_SCLin, });
+
+#endif
+
 
         FtdiDevice.Write(bytes.ToArray()).ThrowIfNotOK();
     }
@@ -139,7 +194,11 @@ public class I2C : ProtocolBase
         const byte MSB_FALLING_EDGE_CLOCK_BYTE_OUT = 0x11;
         const byte I2C_Dir_SDAout_SCLout = 0x03;
         const byte MSB_RISING_EDGE_CLOCK_BIT_IN = 0x22;
+        const byte I2C_Data_SDAlo_SCLlo = 0x00;
+        const byte I2C_Dir_SDAin_SCLout = 0x01;
 
+
+#if (FT232H)
         byte[] buffer = new byte[100];
         int bytesToSend = 0;
         buffer[bytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT;        // clock data byte out
@@ -155,7 +214,31 @@ public class I2C : ProtocolBase
         // CLOCK IN ACK
         buffer[bytesToSend++] = MSB_RISING_EDGE_CLOCK_BIT_IN;           // clock data bits in
         buffer[bytesToSend++] = 0x00;                                   // Length of 0 means 1 bit
+#else
+        byte[] buffer = new byte[100];
+        int bytesToSend = 0;
 
+        // Set directions of clock and data to output in preparation for clocking out a byte
+        buffer[bytesToSend++] = 0x80;                                   // Command - set low byte
+        buffer[bytesToSend++] = I2C_Data_SDAlo_SCLlo;                               // Set the values
+        buffer[bytesToSend++] = I2C_Dir_SDAout_SCLout;                               // Set the directions
+
+        // clock out one byte
+        buffer[bytesToSend++] = MSB_FALLING_EDGE_CLOCK_BYTE_OUT;        // clock data byte out
+        buffer[bytesToSend++] = 0x00;                                   // 
+        buffer[bytesToSend++] = 0x00;                                   // Data length of 0x0000 means 1 byte data to clock in
+        buffer[bytesToSend++] = byteToSend;                         // Byte to send
+
+        // Put line back to idle (data released, clock pulled low) so that sensor can drive data line
+        buffer[bytesToSend++] = 0x80;                                   // Command - set low byte
+        buffer[bytesToSend++] = I2C_Data_SDAlo_SCLlo;                               // Set the values
+        buffer[bytesToSend++] = I2C_Dir_SDAin_SCLout;                               // Set the directions
+
+        // CLOCK IN ACK
+        buffer[bytesToSend++] = MSB_RISING_EDGE_CLOCK_BIT_IN;           // clock data byte in
+        buffer[bytesToSend++] = 0x00;                                   // Length of 0 means 1 bit
+
+#endif
         // This command then tells the MPSSE to send any results gathered (in this case the ack bit) back immediately
         buffer[bytesToSend++] = 0x87;
 
@@ -172,14 +255,18 @@ public class I2C : ProtocolBase
         return ack;
     }
 
-    private byte FTDI_ReadByte(bool ACK = true)
+    private byte FTDI_ReadByte(bool ACK)
     {
         const byte MSB_RISING_EDGE_CLOCK_BYTE_IN = 0x20;
         const byte MSB_FALLING_EDGE_CLOCK_BIT_OUT = 0x13;
         const byte I2C_Data_SDAhi_SCLlo = 0x02;
         const byte I2C_Dir_SDAout_SCLout = 0x03;
+        const byte I2C_Data_SDAlo_SCLlo = 0x00;
+        const byte I2C_Dir_SDAin_SCLout = 0x01;
         int bytesToSend = 0;
 
+
+#if (FT232H)
         // Clock in one data byte
         byte[] buffer = new byte[100];
         buffer[bytesToSend++] = MSB_RISING_EDGE_CLOCK_BYTE_IN;      // Clock data byte in
@@ -198,6 +285,37 @@ public class I2C : ProtocolBase
         buffer[bytesToSend++] = 0x80;                               //       ' Command - set low byte
         buffer[bytesToSend++] = I2C_Data_SDAhi_SCLlo;                            //      ' Set the values
         buffer[bytesToSend++] = I2C_Dir_SDAout_SCLout;                             //     ' Set the directions
+#else
+        byte[] buffer = new byte[100];
+        buffer[bytesToSend++] = 0x80;                                   // command - set low byte
+        buffer[bytesToSend++] = I2C_Data_SDAlo_SCLlo;                               // Set the values
+        buffer[bytesToSend++] = I2C_Dir_SDAin_SCLout;                               // Set the directions
+
+        // Clock in one data byte
+        buffer[bytesToSend++] = MSB_RISING_EDGE_CLOCK_BYTE_IN;      // Clock data byte in
+        buffer[bytesToSend++] = 0x00;
+        buffer[bytesToSend++] = 0x00;                               // Data length of 0x0000 means 1 byte data to clock in
+
+        // Change direction back to output and clock out one bit. If ACK is true, we send bit as 0 as an acknowledge
+        buffer[bytesToSend++] = 0x80;                               // Command - set low byte
+        buffer[bytesToSend++] = I2C_Data_SDAlo_SCLlo;                           // set the values
+        buffer[bytesToSend++] = I2C_Dir_SDAout_SCLout;                           // set the directions
+
+        // clock out one bit as ack/nak bit
+        buffer[bytesToSend++] = MSB_FALLING_EDGE_CLOCK_BIT_OUT;     // Clock data bit out
+        buffer[bytesToSend++] = 0x00;                               // Length of 0 means 1 bit
+
+        if (ACK == true)
+            buffer[bytesToSend++] = 0x00;                           // Data bit to send is a '0'
+        else
+            buffer[bytesToSend++] = 0xFF;                           // Data bit to send is a '1'
+
+        // Put line states back to idle with SDA open drain high (set to input) 
+        buffer[bytesToSend++] = 0x80;                               //       ' Command - set low byte
+        buffer[bytesToSend++] = I2C_Data_SDAlo_SCLlo;                            //      ' Set the values
+        buffer[bytesToSend++] = I2C_Dir_SDAin_SCLout;                             //     ' Set the directions
+
+#endif
 
         // This command then tells the MPSSE to send any results gathered back immediately
         buffer[bytesToSend++] = 0x87;                                  //    ' Send answer back immediate command
@@ -214,7 +332,7 @@ public class I2C : ProtocolBase
         return readBuffer[0];
     }
 
-    #endregion
+#endregion
 
     #region PUBLIC
 
@@ -246,7 +364,15 @@ public class I2C : ProtocolBase
         byte[] bytes = new byte[length];
         for (int i = 0; i < length; i++)
         {
-            bytes[i] = FTDI_ReadByte(ACK: true);
+            if (i == length - 1)
+            {
+                bytes[i] = FTDI_ReadByte(ACK: false);
+            }
+            else
+            {
+                bytes[i] = FTDI_ReadByte(ACK: true);
+            }
+                        
         }
 
         FTDI_Stop();
@@ -294,6 +420,8 @@ public class I2C : ProtocolBase
         {
             bool isLastByte = i == byteCount - 1;
             bytes[i] = FTDI_ReadByte(ACK: !isLastByte);
+            Debug.WriteLine(Convert.ToString(bytes[i]));
+
         }
         FTDI_Stop();
 
